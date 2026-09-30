@@ -1,0 +1,11 @@
+{
+  "llm": {
+    "baseUrl": "http://127.0.0.1:8317/v1",
+    "apiKey": "YOUR_API_KEY",
+    "model": "gpt-6-luna",
+    "imageModel": "gpt-image-2.5-flare"
+  },
+  "google": { "apiKey": "" },
+  "environment": { "provider": "commons" },
+  "port": 3210
+}
