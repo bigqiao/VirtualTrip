@@ -58,7 +58,7 @@ globalThis.fetch = async (url, options = {}) => {
                 mime: "image/jpeg",
                 width: 1200,
                 height: 800,
-                thumburl: "https://upload.wikimedia.org/test/101.jpg",
+                thumburl: "https://thumb.wikimedia.org/thumb/101.jpg",
                 descriptionurl:
                   "https://commons.wikimedia.org/wiki/File:Oslo_street.jpg",
                 extmetadata: {
@@ -78,7 +78,7 @@ globalThis.fetch = async (url, options = {}) => {
                 mime: "image/jpeg",
                 width: 1200,
                 height: 800,
-                thumburl: "https://upload.wikimedia.org/test/102.jpg",
+                thumburl: "https://thumb.wikimedia.org/thumb/102.jpg",
                 descriptionurl:
                   "https://commons.wikimedia.org/wiki/File:Oslo_square.jpg",
                 extmetadata: {
@@ -92,7 +92,10 @@ globalThis.fetch = async (url, options = {}) => {
         },
       },
     });
-  if (address.includes("upload.wikimedia.org"))
+  if (
+    address.includes("upload.wikimedia.org") ||
+    address.includes("thumb.wikimedia.org")
+  )
     return new Response(fixture, { headers: { "content-type": "image/jpeg" } });
   if (address.includes("api.open-meteo.com"))
     return Response.json({

@@ -358,12 +358,20 @@ app.get("/api/environment/photos/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0)
     return res.status(400).json({ error: "照片编号无效" });
-  const bytes = await environmentImage(id);
-  res
-    .set("Cache-Control", "private, max-age=1800")
-    .set("X-Content-Type-Options", "nosniff")
-    .type("jpeg")
-    .send(bytes);
+  try {
+    const bytes = await environmentImage(id);
+    res
+      .set("Cache-Control", "private, max-age=1800")
+      .set("X-Content-Type-Options", "nosniff")
+      .type("jpeg")
+      .send(bytes);
+  } catch (error) {
+    res.set("Cache-Control", "no-store");
+    if (error.retryAfter) res.set("Retry-After", String(error.retryAfter));
+    res
+      .status(error.status || 502)
+      .json({ error: error.message || "环境照片加载失败" });
+  }
 });
 app.get("/api/streetview", async (req, res) => {
   if (config().environment?.provider !== "google")

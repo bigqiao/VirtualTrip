@@ -663,6 +663,62 @@ function EnvironmentCredit({ photo }: { photo: EnvironmentPhoto }) {
     </div>
   );
 }
+function retryImageURL(url: string, attempt: number) {
+  return attempt && !url.startsWith("data:")
+    ? `${url}${url.includes("?") ? "&" : "?"}retry=${attempt}`
+    : url;
+}
+function EnvironmentChoice({
+  photo,
+  index,
+  selected,
+  busy,
+  onSelect,
+}: {
+  photo: EnvironmentPhoto;
+  index: number;
+  selected: boolean;
+  busy: boolean;
+  onSelect: (id: number) => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <button
+      disabled={busy}
+      aria-label={`${failed ? "重试" : "选择"}环境照片 ${index + 1}`}
+      aria-pressed={selected}
+      title={failed ? "照片暂时无法加载，点击重试" : photo.title}
+      className={selected ? "selected" : ""}
+      onClick={() => {
+        if (failed) {
+          setFailed(false);
+          setAttempt((value) => value + 1);
+        } else onSelect(photo.id);
+      }}
+    >
+      {failed ? (
+        <div className="environment-candidate-error">
+          <RefreshCw size={15} />
+          点击重试
+        </div>
+      ) : (
+        <img
+          key={attempt}
+          src={retryImageURL(photo.url, attempt)}
+          alt={photo.title}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      )}
+      {selected && (
+        <span>
+          <Check size={13} />
+        </span>
+      )}
+    </button>
+  );
+}
 function EnvironmentChoices({
   scene,
   onSelect,
@@ -685,22 +741,14 @@ function EnvironmentChoices({
         aria-label="当地环境候选照片"
       >
         {scene.candidates.map((photo, index) => (
-          <button
-            key={photo.id}
-            disabled={busy}
-            aria-label={`选择环境照片 ${index + 1}`}
-            aria-pressed={scene.photo?.id === photo.id}
-            title={photo.title}
-            className={scene.photo?.id === photo.id ? "selected" : ""}
-            onClick={() => onSelect(photo.id)}
-          >
-            <img src={photo.url} alt={photo.title} loading="lazy" />
-            {scene.photo?.id === photo.id && (
-              <span>
-                <Check size={13} />
-              </span>
-            )}
-          </button>
+          <EnvironmentChoice
+            key={`${photo.id}-${photo.url}`}
+            photo={photo}
+            index={index}
+            selected={scene.photo?.id === photo.id}
+            busy={busy}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </div>
@@ -718,7 +766,11 @@ function EnvironmentReference({
   compact?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [scene.photo?.id]);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    setFailed(false);
+    setAttempt(0);
+  }, [scene.photo?.id, scene.photo?.url]);
   if (!scene.photo) return null;
   return (
     <section
@@ -729,12 +781,23 @@ function EnvironmentReference({
         {failed ? (
           <div className="environment-image-error">
             <Camera size={25} />
-            <p>照片暂时无法加载，可选择其他照片</p>
+            <p>实拍图库暂时无法加载，请稍后重试或换一张照片</p>
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => {
+                setFailed(false);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              <RefreshCw size={14} /> 重新加载环境照片
+            </button>
           </div>
         ) : (
           <img
             className="environment-image"
-            src={scene.photo.url}
+            key={attempt}
+            src={retryImageURL(scene.photo.url, attempt)}
             alt="本次选用的当地实拍环境照片"
             onError={() => setFailed(true)}
           />

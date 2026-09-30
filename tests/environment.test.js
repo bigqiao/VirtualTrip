@@ -67,6 +67,7 @@ globalThis.fetch = async (url) => {
   if (address.includes("commons.wikimedia.org/w/api.php")) {
     queryCount++;
     const u = new URL(url);
+    assert.equal(u.searchParams.get("iiurlwidth"), "960");
     if (mode === "error") throw new Error("offline");
     const pages =
       mode === "empty" ||
@@ -263,6 +264,189 @@ test("portrait environment matching retains a suitable ground-level preference",
         );
         return schema.parse({ photoId: 101, reason: "适合环境人像" });
       },
+    },
+  );
+});
+async function withFetch(mock, work) {
+  const previous = globalThis.fetch;
+  globalThis.fetch = mock;
+  try {
+    await work();
+  } finally {
+    globalThis.fetch = previous;
+  }
+}
+function thumbnailPage(id, width = 1800) {
+  const result = page(id);
+  result.imageinfo[0].width = width;
+  result.imageinfo[0].thumburl = `https://thumb.wikimedia.org/thumb/${id}.jpg`;
+  return result;
+}
+const imageResponse = () =>
+  new Response(fixture, {
+    headers: { "content-type": "image/jpeg" },
+  });
+test("current Commons thumbnail CDN is accepted and requested at a standard size", async () => {
+  const p = thumbnailPage(201);
+  assert.equal(
+    new URL(commonsPhoto(p).imageURL).hostname,
+    "thumb.wikimedia.org",
+  );
+  let calls = 0;
+  await withFetch(
+    async (url) => {
+      const u = new URL(url);
+      calls++;
+      if (u.hostname === "commons.wikimedia.org") {
+        assert.equal(u.searchParams.get("iiurlwidth"), "960");
+        assert.equal(u.searchParams.get("pageids"), "202");
+        return Response.json({
+          query: { pages: { 201: p, 202: thumbnailPage(202) } },
+        });
+      }
+      assert.equal(u.href, "https://thumb.wikimedia.org/thumb/202.jpg");
+      return imageResponse();
+    },
+    async () => {
+      const bytes = await environmentImage(202);
+      assert.equal((await sharp(bytes).metadata()).format, "jpeg");
+      assert.equal(calls, 2);
+    },
+  );
+});
+test("small originals are resolved into smaller standard thumbnails without fetching originals", async () => {
+  for (const [id, width, expected] of [
+    [203, 850, "500"],
+    [204, 500, "330"],
+  ]) {
+    const p = page(id);
+    p.imageinfo[0].width = width;
+    p.imageinfo[0].thumburl = p.imageinfo[0].url;
+    commonsPhoto(p);
+    await withFetch(
+      async (url) => {
+        const u = new URL(url);
+        if (u.hostname === "commons.wikimedia.org") {
+          assert.equal(u.searchParams.get("iiurlwidth"), expected);
+          assert.equal(u.searchParams.get("pageids"), String(id));
+          return Response.json({
+            query: { pages: { [id]: thumbnailPage(id, width) } },
+          });
+        }
+        assert.equal(u.href, `https://thumb.wikimedia.org/thumb/${id}.jpg`);
+        return imageResponse();
+      },
+      async () => assert.ok((await environmentImage(id)).length > 0),
+    );
+  }
+});
+test("thumbnail redirects follow allowed CDNs and reject other hosts before requesting them", async () => {
+  commonsPhoto(page(205));
+  commonsPhoto(page(206));
+  const requested = [];
+  await withFetch(
+    async (url, options) => {
+      requested.push(String(url));
+      assert.equal(options.redirect, "manual");
+      if (String(url).includes("upload.wikimedia.org"))
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: String(url).includes("205")
+              ? "https://thumb.wikimedia.org/thumb/205.jpg"
+              : "http://127.0.0.1/private",
+          },
+        });
+      assert.equal(String(url), "https://thumb.wikimedia.org/thumb/205.jpg");
+      return imageResponse();
+    },
+    async () => {
+      assert.ok((await environmentImage(205)).length > 0);
+      await assert.rejects(() => environmentImage(206), /地址无效/);
+      assert.equal(requested.length, 3);
+    },
+  );
+});
+test("downloads queue at three concurrent requests and share duplicate requests", async () => {
+  const ids = [210, 211, 212, 213, 214, 215];
+  ids.forEach((id) => commonsPhoto(thumbnailPage(id)));
+  let active = 0,
+    peak = 0,
+    calls = 0;
+  await withFetch(
+    async () => {
+      calls++;
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      active--;
+      return imageResponse();
+    },
+    async () => {
+      await Promise.all([...ids, ids[0], ids[0]].map(environmentImage));
+      assert.equal(peak, 3);
+      assert.equal(calls, 6);
+    },
+  );
+});
+test("transient image failures are cached briefly and recover after the retry window", async () => {
+  commonsPhoto(thumbnailPage(220));
+  let calls = 0;
+  const realNow = Date.now;
+  const now = realNow();
+  await withFetch(
+    async () => {
+      if (++calls === 1) throw new Error("offline");
+      return imageResponse();
+    },
+    async () => {
+      try {
+        Date.now = () => now;
+        await assert.rejects(() => environmentImage(220), /offline/);
+        await assert.rejects(
+          () => environmentImage(220),
+          (e) => e.retryAfter === 15,
+        );
+        assert.equal(calls, 1);
+        Date.now = () => now + 16000;
+        assert.ok((await environmentImage(220)).length > 0);
+        assert.equal(calls, 2);
+      } finally {
+        Date.now = realNow;
+      }
+    },
+  );
+});
+test("CDN rate limits honor Retry-After across photos and resume only after that wait", async () => {
+  commonsPhoto(thumbnailPage(230));
+  commonsPhoto(thumbnailPage(231));
+  let calls = 0;
+  const realNow = Date.now;
+  const now = realNow();
+  await withFetch(
+    async () => {
+      if (++calls === 1)
+        return new Response(null, {
+          status: 429,
+          headers: { "retry-after": "600" },
+        });
+      return imageResponse();
+    },
+    async () => {
+      try {
+        Date.now = () => now;
+        for (const id of [230, 230, 231])
+          await assert.rejects(
+            () => environmentImage(id),
+            (e) => e.status === 503 && e.retryAfter === 600,
+          );
+        assert.equal(calls, 1);
+        Date.now = () => now + 601000;
+        await Promise.all([environmentImage(230), environmentImage(231)]);
+        assert.equal(calls, 3);
+      } finally {
+        Date.now = realNow;
+      }
     },
   );
 });

@@ -74,6 +74,8 @@ const environments = [101, 102].map((id, index) => ({
   height: 800,
 }));
 let commonsMode = false;
+let brokenEnvironmentImages = true;
+let environmentImageRequests = 0;
 const environmentScene = (id = 102, manual = false) => ({
   source: "commons",
   photo: environments.find((p) => p.id === id),
@@ -86,6 +88,19 @@ let tripRequest = null;
 await page.route("**/api/**", async (route) => {
   const url = new URL(route.request().url());
   let response;
+  if (url.pathname.startsWith("/api/environment/photos/")) {
+    environmentImageRequests++;
+    return brokenEnvironmentImages
+      ? route.fulfill({
+          status: 503,
+          headers: { "Retry-After": "60" },
+          json: { error: "实拍图库暂时繁忙" },
+        })
+      : route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#b8d8e8"/></svg>',
+        });
+  }
   if (url.pathname === "/api/state") response = state;
   else if (url.pathname === "/api/location")
     response = {
@@ -199,6 +214,9 @@ try {
     throw new Error("Manual photo selection was not sent to backend");
   await page.getByRole("button", { name: "再调整一下" }).click();
   commonsMode = true;
+  environments.forEach((p) => {
+    p.url = `/api/environment/photos/${p.id}`;
+  });
   await page.getByRole("button", { name: "地图选点", exact: true }).click();
   await page.locator(".map-view").click({ position: { x: 100, y: 160 } });
   await expect(page.locator(".location-strip strong").first()).toContainText(
@@ -208,6 +226,34 @@ try {
   await expect(
     page.getByRole("group", { name: "当地环境候选照片" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "重新加载环境照片" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "重试环境照片 1" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "重试环境照片 2" }),
+  ).toBeVisible();
+  const failedRequests = environmentImageRequests;
+  await page.waitForTimeout(200);
+  if (environmentImageRequests !== failedRequests)
+    throw new Error("Failed environment images retried automatically");
+  brokenEnvironmentImages = false;
+  await page.getByRole("button", { name: "重新加载环境照片" }).click();
+  await expect(page.locator(".environment-image")).toBeVisible();
+  for (const index of [1, 2]) {
+    await page.getByRole("button", { name: `重试环境照片 ${index}` }).click();
+    await expect(
+      page.getByRole("button", { name: `选择环境照片 ${index}` }),
+    ).toBeVisible();
+  }
+  if (
+    !(await page
+      .locator(".environment-image")
+      .evaluate((img) => img.complete && img.naturalWidth > 0))
+  )
+    throw new Error("Environment image failed to recover after manual retry");
   await page.getByRole("button", { name: "准备我的虚拟旅行" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("当地实拍参考");

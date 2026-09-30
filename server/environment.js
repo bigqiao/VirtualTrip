@@ -7,8 +7,34 @@ import { photographyStyle } from "./photography.js";
 const searches = new Map(),
   files = new Map(),
   images = new Map(),
+  failures = new Map(),
+  cooldowns = new Map(),
   choices = new Map();
 const TTL = 30 * 60 * 1000;
+const IMAGE_HOSTS = ["upload.wikimedia.org", "thumb.wikimedia.org"];
+let activeLoads = 0;
+const waitingLoads = [];
+async function limitedLoad(work) {
+  if (activeLoads >= 3)
+    await new Promise((resolve) => waitingLoads.push(resolve));
+  else activeLoads++;
+  try {
+    return await work();
+  } finally {
+    const next = waitingLoads.shift();
+    if (next) next();
+    else activeLoads--;
+  }
+}
+function busyError(until) {
+  return Object.assign(
+    new Error("实拍图库暂时繁忙，请稍后重试或选择其他照片。"),
+    {
+      retryAfter: Math.max(1, Math.ceil((until - Date.now()) / 1000)),
+      status: 503,
+    },
+  );
+}
 const USER_AGENT = "VirtualTrip/1.0 (local personal travel photo application)";
 function bounded(map, key, value, max = 100) {
   map.set(key, value);
@@ -50,7 +76,7 @@ export function commonsPhoto(page, location) {
     meta = info?.extmetadata || {};
   if (!info || !["image/jpeg", "image/png", "image/webp"].includes(info.mime))
     return null;
-  const imageURL = safeURL(info.thumburl || info.url, ["upload.wikimedia.org"]);
+  const imageURL = safeURL(info.thumburl || info.url, IMAGE_HOSTS);
   const sourceURL = safeURL(info.descriptionurl, ["commons.wikimedia.org"]);
   const license = plain(meta.LicenseShortName?.value);
   if (!imageURL || !sourceURL || !license) return null;
@@ -98,7 +124,7 @@ async function queryCommons(parameters) {
     format: "json",
     prop: "imageinfo|coordinates",
     iiprop: "url|extmetadata|size|mime",
-    iiurlwidth: "1280",
+    iiurlwidth: "960",
     ...parameters,
   });
   const data = await jsonFetch(
@@ -201,15 +227,57 @@ async function loadImage(id) {
   let record = files.get(id);
   if (!record || Date.now() - record.time > TTL) {
     const pages = await queryCommons({ pageids: String(id) });
-    const photo = commonsPhoto(pages[0] || {});
+    const photo = commonsPhoto(pages.find((page) => page.pageid === id) || {});
     if (!photo) throw new Error("环境照片已不可用，请选择其他照片。");
     record = files.get(id);
   }
-  const response = await fetch(record.photo.imageURL, {
-    redirect: "error",
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(15000),
-  });
+  // MediaWiki returns the original when a requested thumbnail exceeds its size.
+  // Ask for a smaller supported size instead of downloading rate-limited originals.
+  if (!new URL(record.photo.imageURL).pathname.includes("/thumb/")) {
+    const pages = await queryCommons({
+      pageids: String(id),
+      iiurlwidth: record.photo.width > 500 ? "500" : "330",
+    });
+    const photo = commonsPhoto(pages.find((page) => page.pageid === id) || {});
+    if (!photo || !new URL(photo.imageURL).pathname.includes("/thumb/"))
+      throw new Error("环境照片的缩略图暂不可用，请选择其他照片。");
+    record = files.get(id);
+  }
+  let url = record.photo.imageURL;
+  let response;
+  const signal = AbortSignal.timeout(15000);
+  for (let hop = 0; hop <= 3; hop++) {
+    if (!safeURL(url, IMAGE_HOSTS)) throw new Error("参考照片地址无效");
+    const host = new URL(url).hostname;
+    const until = cooldowns.get(host) || 0;
+    if (until > Date.now()) throw busyError(until);
+    response = await fetch(url, {
+      redirect: "manual",
+      headers: { "User-Agent": USER_AGENT },
+      signal,
+    });
+    if (response.status === 429 || response.status === 503) {
+      const retry = response.headers.get("retry-after");
+      const seconds = retry && /^\d+$/.test(retry) ? Number(retry) : NaN;
+      const date = retry ? Date.parse(retry) : NaN;
+      const pauseUntil = Number.isFinite(seconds)
+        ? Date.now() + Math.max(1, seconds) * 1000
+        : Number.isFinite(date) && date > Date.now()
+          ? date
+          : Date.now() + 60000;
+      cooldowns.set(host, pauseUntil);
+      await response.body?.cancel();
+      throw busyError(pauseUntil);
+    }
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const target = response.headers.get("location");
+      await response.body?.cancel();
+      if (!target || hop === 3) throw new Error("参考照片重定向无效");
+      url = new URL(target, url).href;
+      continue;
+    }
+    break;
+  }
   if (
     !response.ok ||
     !response.headers.get("content-type")?.startsWith("image/")
@@ -237,18 +305,31 @@ async function loadImage(id) {
 }
 export async function environmentImage(id) {
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error("照片编号无效");
+  const failed = failures.get(id);
+  if (failed && failed.until > Date.now())
+    throw Object.assign(new Error(failed.error.message), {
+      retryAfter: Math.ceil((failed.until - Date.now()) / 1000),
+      status: failed.error.status || 502,
+    });
+  failures.delete(id);
   let cached = images.get(id);
   if (!cached || Date.now() - cached.time > TTL)
     cached = bounded(
       images,
       id,
-      { time: Date.now(), promise: loadImage(id) },
+      { time: Date.now(), promise: limitedLoad(() => loadImage(id)) },
       32,
     );
   try {
     return await cached.promise;
   } catch (error) {
-    images.delete(id);
+    if (images.get(id) === cached) {
+      images.delete(id);
+      bounded(failures, id, {
+        error,
+        until: Date.now() + (error.retryAfter || 15) * 1000,
+      });
+    }
     throw error;
   }
 }
