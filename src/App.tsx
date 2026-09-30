@@ -2359,6 +2359,7 @@ function UploadModal({
   const [error, setError] = useState("");
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const pasted = useRef(0);
   useEffect(() => {
     const urls = files.map((file) => URL.createObjectURL(file));
     setPreviews(urls);
@@ -2375,6 +2376,31 @@ function UploadModal({
     else setError("");
     setFiles((prev) => [...prev, ...valid].slice(0, 12));
   };
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const images = Array.from(e.clipboardData?.files || []).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (!images.length) return;
+      e.preventDefault();
+      add(
+        images.map((f) => {
+          const clipboardName = f.name.match(/^image\.(\w+)$/);
+          return clipboardName
+            ? new File(
+                [f],
+                `粘贴图片-${++pasted.current}.${clipboardName[1]}`,
+                {
+                  type: f.type,
+                },
+              )
+            : f;
+        }),
+      );
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
   return (
     <Modal
       title="收藏生活里的样子"
@@ -2430,7 +2456,7 @@ function UploadModal({
           <div>
             <Upload size={26} />
           </div>
-          <h3>把照片拖到这里</h3>
+          <h3>把照片拖到这里，或直接粘贴</h3>
           <p>JPG、PNG、WebP · 单张最大 20MB · 每次最多 12 张</p>
           <button
             type="button"
