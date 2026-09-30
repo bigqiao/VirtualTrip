@@ -3,14 +3,14 @@
     "id": "daily",
     "label": "日常抓拍",
     "summary": "平视随手拍，自然动作与真实色彩，保留生活中的小细节。",
-    "prompt": "Everyday candid snapshot: use an eye-level handheld camera, approximately 28–40mm equivalent perspective, informal balanced framing and spontaneous scene-appropriate movement. Render true-to-life color, natural white balance, believable skin texture, moderate depth of field and ambient light appropriate to the requested weather and time. Keep small everyday imperfections; avoid studio posing, glamour retouching, dramatic fashion lighting, heavy filters and excessively blurred backgrounds.",
+    "prompt": "Everyday candid snapshot: use an eye-level handheld camera, approximately 28–40mm equivalent perspective, informal balanced framing and spontaneous scene-appropriate movement. Preserve each person's real facial features exactly. Render true-to-life color, natural white balance, believable skin texture, moderate depth of field and ambient light appropriate to the requested weather and time. Keep small everyday imperfections; avoid studio posing, glamour retouching, dramatic fashion lighting, heavy filters and excessively blurred backgrounds.",
     "environmentPrompt": "For everyday candid photography, prefer a natural ground-level street or landscape with space for people at a believable eye-level camera perspective. Avoid aerial-only views unless the user explicitly requests an elevated camera."
   },
   {
     "id": "film",
     "label": "胶片记忆",
     "summary": "35mm 胶片质感，细腻颗粒、柔和反差和略带暖意的复古色调。",
-    "prompt": "Analog 35mm film travel photograph: use fine organic film grain, gently muted saturation, subtle warm-neutral color response, softer contrast, lifted but detailed shadows and gentle highlight roll-off. Keep real skin tones, facial detail and recognizable clothing colors. Frame an intimate, relaxed eye-level travel moment with moderate depth of field. Adapt the film response to the requested weather and time; do not force daylight or a sunset. Avoid heavy sepia, coarse digital noise, artificial scratches, fake light leaks, film borders and date stamps.",
+    "prompt": "Analog 35mm film travel photograph: use fine organic film grain, gently muted saturation, subtle warm-neutral color response, softer contrast, lifted but detailed shadows and gentle highlight roll-off. Keep each person's real facial features, skin tones, facial detail and recognizable clothing colors. Frame an intimate, relaxed eye-level travel moment with moderate depth of field. Adapt the film response to the requested weather and time; do not force daylight or a sunset. Avoid heavy sepia, coarse digital noise, artificial scratches, fake light leaks, film borders and date stamps.",
     "environmentPrompt": "For an analog film travel memory, prefer an intimate ground-level local environment with texture and readable foreground space. The source image need not already look like film: the generator will apply the film rendering. Avoid aerial-only views unless explicitly requested."
   },
   {

@@ -123,17 +123,24 @@ export function chooseReference(
     selectionMethod: "adapt",
   };
 }
-// The primary image controls clothing. Extra images only strengthen identity,
-// so their weather suitability must not restrict identity-reference selection.
+// The clearest face leads so the generator anchors identity on it; the primary
+// clothing image follows directly so budget trimming never drops it. Extra
+// images only strengthen identity, so their weather suitability must not
+// restrict identity-reference selection.
 export function chooseIdentityReferences(photos, primary, maxReferences = 3) {
-  const selected = [primary];
-  const seen = new Set([primary.id]);
-  for (const candidate of [...photos].sort(byIdentityQuality)) {
+  const ranked = photos
+    .filter((p) => p.analysis?.hasPerson !== false)
+    .sort(byIdentityQuality);
+  const clearest = ranked[0];
+  const selected =
+    clearest &&
+    (clearest.analysis?.identityQuality || 0) >
+      (primary.analysis?.identityQuality || 0)
+      ? [clearest, primary]
+      : [primary];
+  for (const candidate of ranked) {
     if (selected.length >= maxReferences) break;
-    if (seen.has(candidate.id) || candidate.analysis?.hasPerson === false)
-      continue;
-    selected.push(candidate);
-    seen.add(candidate.id);
+    if (!selected.some((p) => p.id === candidate.id)) selected.push(candidate);
   }
   return selected;
 }

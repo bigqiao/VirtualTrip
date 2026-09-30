@@ -422,11 +422,11 @@ test("multiple identity references keep winter clothing from only the primary im
   assert.equal(selected.adapt, false);
   assert.deepEqual(
     selected.references.map((r) => r.photoId),
-    ["winter", "closeup", "summer"],
+    ["closeup", "winter", "summer"],
   );
   assert.deepEqual(
     selected.references.map((r) => r.role),
-    ["identity-outfit", "identity", "identity"],
+    ["identity", "identity-outfit", "identity"],
   );
   createTrip("multi-winter", request, plan);
   await runTrip("multi-winter", request, plan);
@@ -437,12 +437,17 @@ test("multiple identity references keep winter clothing from only the primary im
   );
   assert.match(
     lastEdit.get("prompt"),
-    /Reuse ONLY the suitable outfit in primary image 1: 厚冬装与围巾/,
+    /Reuse ONLY the suitable outfit in image 2: 厚冬装与围巾/,
   );
   assert.match(
     lastEdit.get("prompt"),
-    /Image 2: identity ONLY, its clothing must be ignored/,
+    /Image 1: PRIMARY FACE reference \(clearest face\); its clothing must be ignored/,
   );
+  assert.match(
+    lastEdit.get("prompt"),
+    /Image 2: the selected clothing reference/,
+  );
+  assert.match(lastEdit.get("prompt"), /anchored on image 1 and cross-checked/);
   assert.match(
     lastEdit.get("prompt"),
     /ALL these images depict the SAME person/,
@@ -461,7 +466,10 @@ test("streetview plus multiple travelers use correct per-person image ranges", a
     outfits: { alice: { photoId: "summer" } },
   });
   const plan = await preparePlan(req);
-  assert.equal(plan.selected[0].references[0].photoId, "summer");
+  assert.deepEqual(
+    plan.selected[0].references.slice(0, 2).map((r) => r.photoId),
+    ["closeup", "summer"],
+  );
   createTrip("multi-street", req, plan);
   await runTrip("multi-street", req, plan);
   assert.equal(lastEdit.getAll("image[]").length, 5);
@@ -472,7 +480,7 @@ test("streetview plus multiple travelers use correct per-person image ranges", a
   assert.match(lastEdit.get("prompt"), /Person 2, name "小明", image 5/);
   assert.match(
     lastEdit.get("prompt"),
-    /User explicitly chose the outfit in primary image 2/,
+    /User explicitly chose the outfit in image 3/,
   );
   assert.match(lastEdit.get("prompt"), /Image 1 is the destination/);
 });
@@ -511,7 +519,7 @@ test("context wardrobe selection is integrated through the actual chat API and r
   await runTrip("llm-wardrobe", req, plan);
   assert.match(
     lastEdit.get("prompt"),
-    /Reuse ONLY the suitable outfit in primary image 1: 城市厚呢外套与长裤/,
+    /Reuse ONLY the suitable outfit in image 2: 城市厚呢外套与长裤/,
   );
   wardrobePhotoId = null;
 });
@@ -550,8 +558,19 @@ test("scene planner designs per-person poses and edit prompt ignores original re
   assert.doesNotMatch(bob, /小雨沿街缓步/);
   assert.match(
     prompt,
-    /Do NOT copy the stance, gesture, expression or camera-facing pose/,
+    /redesign body orientation, arms\/hands and interaction instead of copying the stance or gestures/,
   );
+  assert.match(
+    prompt,
+    /PRIORITY ORDER when requirements conflict: 1\) each person's real facial identity/,
+  );
+  assert.match(prompt, /FACE IDENTITY \(highest priority\)/);
+  assert.match(prompt, /No beautification, face slimming/);
+  assert.match(
+    prompt,
+    /Keep the head between frontal and about three-quarter view/,
+  );
+  assert.match(lastNarrativePrompt, /Keep every face clearly visible/);
   assert.match(prompt, /An explicit user pose request takes priority/);
   actionResponse = [];
 });
@@ -593,7 +612,7 @@ test("default Commons uses vision-selected environment as image 1 and saves attr
     lastEdit.get("prompt"),
     /Image 1 is a nearby real photograph from Wikimedia Commons/,
   );
-  assert.match(lastEdit.get("prompt"), /primary image 2/);
+  assert.match(lastEdit.get("prompt"), /Image 2: PRIMARY FACE reference/);
   assert.match(
     lastNarrativePrompt,
     /Existing people in that environment image are NOT selected travelers/,
@@ -675,6 +694,11 @@ for (const [style, label, rendering, camera] of [
       assert.match(lastEdit.get("prompt"), /10–25 percent of image height/);
       assert.match(lastEdit.get("prompt"), /not an eye-level portrait/);
       assert.doesNotMatch(lastEdit.get("prompt"), /selected foreground people/);
+      assert.doesNotMatch(lastEdit.get("prompt"), /Keep the head between/);
+      assert.doesNotMatch(
+        lastNarrativePrompt,
+        /Keep every face clearly visible/,
+      );
     }
   });
 }

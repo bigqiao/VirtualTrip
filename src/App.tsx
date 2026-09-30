@@ -1703,15 +1703,21 @@ function Travel({
                   <p>{p.reason}</p>
                   {(p.references?.length || 0) > 1 && (
                     <div className="supplementary-references">
-                      {p.references!.slice(1).map((ref, index) => (
-                        <figure key={ref.photoId}>
-                          <img
-                            src={ref.url}
-                            alt={`${p.name}的补充外貌参考 ${index + 1}`}
-                          />
-                          <figcaption>仅参考外貌</figcaption>
-                        </figure>
-                      ))}
+                      {p
+                        .references!.filter((ref) => ref.photoId !== p.photoId)
+                        .map((ref, index) => (
+                          <figure key={ref.photoId}>
+                            <img
+                              src={ref.url}
+                              alt={`${p.name}的补充外貌参考 ${index + 1}`}
+                            />
+                            <figcaption>
+                              {ref.photoId === p.references![0].photoId
+                                ? "脸部主参考"
+                                : "仅参考外貌"}
+                            </figcaption>
+                          </figure>
+                        ))}
                     </div>
                   )}
                 </div>

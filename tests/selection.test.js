@@ -66,7 +66,7 @@ test("invalid or deleted manual photo never silently falls back", () => {
   assert.throws(() => chooseReference([], { temperature: 0 }));
 });
 
-test("additional identity references are ranked by face visibility regardless of clothes", () => {
+test("clearest face leads, clothing image follows, extras ranked by face visibility", () => {
   const clearerSummer = {
     ...summer,
     id: "face",
@@ -78,7 +78,13 @@ test("additional identity references are ranked by face visibility regardless of
   );
   assert.deepEqual(
     refs.map((p) => p.id),
-    ["winter", "face", "summer"],
+    ["face", "winter", "summer"],
+  );
+});
+test("clothing image stays first when it already has the clearest face", () => {
+  assert.deepEqual(
+    chooseIdentityReferences([summer, winter], summer).map((p) => p.id),
+    ["summer", "winter"],
   );
 });
 test("few photos do not lead to duplicate references or invented images", () => {
