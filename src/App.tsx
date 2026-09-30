@@ -58,8 +58,37 @@ import type {
   Plan,
   Trip,
   TravelRequest,
+  PhotographyStyle,
 } from "./types";
 import MapView from "./MapView";
+import photographyStyles from "../shared/photography.json";
+const photographyIcons: Record<string, typeof Camera> = {
+  daily: Camera,
+  film: Film,
+  editorial: Focus,
+};
+function DroneIcon({ size = 19 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="5" r="3" />
+      <circle cx="19" cy="5" r="3" />
+      <circle cx="5" cy="19" r="3" />
+      <circle cx="19" cy="19" r="3" />
+      <path d="M7 7l3 3m4 0 3-3M7 17l3-3m4 0 3 3" />
+      <rect x="9" y="9" width="6" height="6" rx="1.5" />
+    </svg>
+  );
+}
 const destinations = [
   {
     name: "巴黎 · 蒙马特",
@@ -747,7 +776,7 @@ function Travel({
   const [selected, setSelected] = useState<string[]>([]);
   const [outfits, setOutfits] = useState<Record<string, Outfit>>({});
   const [outfitPerson, setOutfitPerson] = useState<Person | null>(null);
-  const [style, setStyle] = useState("daily");
+  const [style, setStyle] = useState<PhotographyStyle>("daily");
   const [moment, setMoment] = useState("natural");
   const [aspect, setAspect] = useState("landscape");
   const [instruction, setInstruction] = useState("");
@@ -1372,21 +1401,29 @@ function Travel({
             </div>
             <label className="field-label">照片风格</label>
             <div className="style-options">
-              {[
-                { id: "daily", icon: Camera, label: "日常抓拍" },
-                { id: "film", icon: Film, label: "胶片记忆" },
-                { id: "editorial", icon: Focus, label: "旅拍写真" },
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  className={style === s.id ? "selected" : ""}
-                  onClick={() => setStyle(s.id)}
-                >
-                  <s.icon size={19} />
-                  <span>{s.label}</span>
-                </button>
-              ))}
+              {photographyStyles.map((s) => {
+                const Icon =
+                  s.id === "drone" ? DroneIcon : photographyIcons[s.id];
+                return (
+                  <button
+                    key={s.id}
+                    className={style === s.id ? "selected" : ""}
+                    aria-pressed={style === s.id}
+                    title={s.summary}
+                    onClick={() => setStyle(s.id as PhotographyStyle)}
+                  >
+                    <Icon size={19} />
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
             </div>
+            <p className="style-description" role="status" aria-live="polite">
+              {photographyStyles.find((s) => s.id === style)?.summary}
+              {style === "drone" && (
+                <small>远景中人脸细节会减少；环境视角由 AI 重构。</small>
+              )}
+            </p>
             <label className="field-label" htmlFor="trip-instruction">
               留下一个想法 <span>可选</span>
             </label>
@@ -1537,6 +1574,19 @@ function Travel({
             >
               {sceneLabel(plan.scene)}
             </span>
+          </div>
+          <div className="preview-photography">
+            {style === "drone" ? <DroneIcon size={17} /> : <Camera size={17} />}
+            <div>
+              <strong>
+                {plan.photography?.label ||
+                  photographyStyles.find((s) => s.id === style)?.label}
+              </strong>
+              <p>
+                {plan.photography?.summary ||
+                  photographyStyles.find((s) => s.id === style)?.summary}
+              </p>
+            </div>
           </div>
           {plan.scene.reason && (
             <p className="preview-reason">{plan.scene.reason}</p>

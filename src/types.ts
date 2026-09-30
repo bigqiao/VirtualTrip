@@ -76,6 +76,7 @@ export type Settings = {
   environment?: { provider: "commons" | "google" };
 };
 export type Outfit = { photoId?: string; instruction?: string };
+export type PhotographyStyle = "daily" | "film" | "editorial" | "drone";
 export type TravelRequest = {
   environmentPhotoId?: number;
   location: Location;
@@ -83,7 +84,7 @@ export type TravelRequest = {
   outfits: Record<string, Outfit>;
   temperature: number | null;
   heading: number;
-  style: string;
+  style: PhotographyStyle;
   moment: string;
   aspect: string;
   instruction: string;
@@ -108,6 +109,7 @@ export type Selection = {
 };
 export type Plan = {
   previewToken?: string;
+  photography?: { style: PhotographyStyle; label: string; summary: string };
   temperature: number | null;
   temperatureSource: string;
   weather: Weather;

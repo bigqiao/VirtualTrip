@@ -1,5 +1,6 @@
 import { chromium, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import photographyStyles from "../shared/photography.json" with { type: "json" };
 const base = process.env.VIRTUALTRIP_URL || "http://127.0.0.1:3210";
 const browser = await chromium.launch({
   headless: true,
@@ -105,6 +106,10 @@ await page.route("**/api/**", async (route) => {
       previewToken: commonsMode
         ? `commons-token-${planRequest.environmentPhotoId || 102}`
         : "browser-preview-token",
+      photography: {
+        style: planRequest.style,
+        ...photographyStyles.find((p) => p.id === planRequest.style),
+      },
       temperature: -8,
       temperatureSource: "current",
       weather: { temperature: -8 },
@@ -239,6 +244,37 @@ try {
       "Manual environment selection and reviewed token were not preserved",
     );
   await page.setViewportSize({ width: 1440, height: 1000 });
+  for (const [label, description] of [
+    ["胶片记忆", "细腻颗粒"],
+    ["旅拍写真", "人像构图"],
+    ["日常抓拍", "平视随手拍"],
+    ["无人机航拍", "8–20 米"],
+  ]) {
+    const option = page.getByRole("button", { name: label, exact: true });
+    await option.click();
+    await expect(option).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".style-description")).toContainText(description);
+  }
+  await page.getByRole("button", { name: "准备我的虚拟旅行" }).click();
+  await expect(
+    page.getByRole("dialog").locator(".preview-photography"),
+  ).toContainText("无人机航拍");
+  if (planRequest.style !== "drone")
+    throw new Error("Drone style missing from preview request");
+  await page.setViewportSize({ width: 390, height: 844 });
+  if (
+    await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+  )
+    throw new Error("Mobile drone preview overflow");
+  await page.screenshot({
+    path: ".playwright/drone-preview-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "确认并生成生活照" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  if (tripRequest.style !== "drone")
+    throw new Error("Drone style missing from generation request");
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "设置与连接", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "环境照片来源" }),
@@ -264,7 +300,7 @@ try {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   if (errors.length) throw new Error(errors.join("; "));
   console.log(
-    "Browser smoke passed: navigation preserves draft, indexed search, cold-weather preview, multiple identity references, Commons AI selection, manual environment selection with confirmed token, default Google disabled, map selection, model test, desktop/mobile layout, modal focus and Escape.",
+    "Browser smoke passed: four photography styles and descriptions, drone preview and generation, navigation preserves draft, indexed search, multiple identity references, Commons AI selection, manual environment selection with confirmed token, default Google disabled, map selection, model test, desktop/mobile layout, modal focus and Escape.",
   );
 } finally {
   await browser.close();

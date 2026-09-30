@@ -1214,7 +1214,7 @@ h1 {
 }
 .style-options {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 7px;
 }
 .style-options button {
@@ -1235,6 +1235,37 @@ h1 {
 }
 .style-options button:hover {
   background: #f8faff;
+}
+.style-description {
+  color: #78869b;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 10px 0 14px;
+}
+.style-description small {
+  display: block;
+  color: #939dae;
+  margin-top: 4px;
+}
+.preview-photography {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0;
+  color: #627bb9;
+}
+.preview-photography svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.preview-photography strong {
+  font-size: 12px;
+}
+.preview-photography p {
+  margin: 4px 0 0;
+  color: #8792a5;
+  font-size: 11px;
+  line-height: 1.7;
 }
 .mood-panel textarea {
   width: 100%;

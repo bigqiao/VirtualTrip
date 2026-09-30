@@ -299,6 +299,19 @@ test("changing the environment requires a new preview and preserves the newly re
     102,
   );
 });
+test("changing camera style invalidates a previously reviewed plan", () => {
+  const original = { ...request, style: "daily" };
+  const saved = savePreview(original, plan);
+  assert.throws(
+    () =>
+      confirmedPreview({
+        ...original,
+        style: "drone",
+        previewToken: saved.previewToken,
+      }),
+    /选项已变化/,
+  );
+});
 test("deleted supplementary image invalidates the preview before any generation", () => {
   const saved = savePreview(request, plan);
   db.prepare("DELETE FROM photos WHERE id=?").run("casual");

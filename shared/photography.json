@@ -1,0 +1,30 @@
+[
+  {
+    "id": "daily",
+    "label": "日常抓拍",
+    "summary": "平视随手拍，自然动作与真实色彩，保留生活中的小细节。",
+    "prompt": "Everyday candid snapshot: use an eye-level handheld camera, approximately 28–40mm equivalent perspective, informal balanced framing and spontaneous scene-appropriate movement. Render true-to-life color, natural white balance, believable skin texture, moderate depth of field and ambient light appropriate to the requested weather and time. Keep small everyday imperfections; avoid studio posing, glamour retouching, dramatic fashion lighting, heavy filters and excessively blurred backgrounds.",
+    "environmentPrompt": "For everyday candid photography, prefer a natural ground-level street or landscape with space for people at a believable eye-level camera perspective. Avoid aerial-only views unless the user explicitly requests an elevated camera."
+  },
+  {
+    "id": "film",
+    "label": "胶片记忆",
+    "summary": "35mm 胶片质感，细腻颗粒、柔和反差和略带暖意的复古色调。",
+    "prompt": "Analog 35mm film travel photograph: use fine organic film grain, gently muted saturation, subtle warm-neutral color response, softer contrast, lifted but detailed shadows and gentle highlight roll-off. Keep real skin tones, facial detail and recognizable clothing colors. Frame an intimate, relaxed eye-level travel moment with moderate depth of field. Adapt the film response to the requested weather and time; do not force daylight or a sunset. Avoid heavy sepia, coarse digital noise, artificial scratches, fake light leaks, film borders and date stamps.",
+    "environmentPrompt": "For an analog film travel memory, prefer an intimate ground-level local environment with texture and readable foreground space. The source image need not already look like film: the generator will apply the film rendering. Avoid aerial-only views unless explicitly requested."
+  },
+  {
+    "id": "editorial",
+    "label": "旅拍写真",
+    "summary": "摄影师式人像构图，突出人物、层次和柔和定向光，动作更有表现力。",
+    "prompt": "Professional editorial travel portrait: use deliberate environmental portrait composition, approximately 50–85mm equivalent perspective, carefully balanced leading lines, moderate subject-background separation and polished but believable detail. Favor flattering soft directional light consistent with the requested weather and time, controlled highlights and refined natural colors. Design relaxed, expressive, intentional poses with coordinated body orientation and gaze; preserve each person's actual facial identity, body proportions and real skin texture. The surroundings remain recognizable. Avoid plastic skin, face beautification, exaggerated fashion styling, studio backdrops and advertisement montages. This style does not authorize changing the selected outfit.",
+    "environmentPrompt": "For an editorial environmental travel portrait, prefer a location with compositional depth, readable architecture or landscape, and uncluttered space for the subject. A ground-level viewpoint with room for a composed portrait is preferable; avoid aerial-only views unless explicitly requested."
+  },
+  {
+    "id": "drone",
+    "label": "无人机航拍",
+    "summary": "约 8–20 米高的斜俯拍，人物占比更小，突出广场、街道与地形。",
+    "prompt": "Consumer-drone travel photograph: simulate a stabilized quadcopter camera approximately 8–20 meters above the ground, tilted downward by about 35–65 degrees, with a 24–28mm equivalent wide lens. Create a clearly elevated oblique aerial viewpoint, not an eye-level portrait. Show full-body travelers smaller in the frame, normally around 10–25 percent of image height, within a broad readable environment. Use pathways, plaza patterns, coastlines or terrain as leading lines, with coherent overhead perspective, realistic ground contact and shadows. Preserve each selected person's identity as far as this distance permits without enlarging faces unnaturally or pasting in close-up heads. People move naturally on the ground rather than hovering, standing on rooftops or uniformly staring up. Keep recognizable environmental structure while reconstructing the camera view; unseen roofs and layout are plausible inferred details, not verified survey imagery. Avoid satellite-map appearance, fisheye distortion, forced miniature tilt-shift, visible drones, camera HUDs and watermarks.",
+    "environmentPrompt": "For drone photography, prefer a broad elevated or aerial environment reference with readable local layout, terrain and space for travelers on the ground. Do NOT reject an aerial photo merely because the people stand on the ground: the CAMERA is above them. A useful ground-level photo may also anchor local architecture and materials, with the generator reconstructing a plausible elevated viewpoint; it must not force a ground-level composition. Reject maps and diagrams rather than real aerial photographs."
+  }
+]

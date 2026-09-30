@@ -615,6 +615,78 @@ test("manual environment choice bypasses vision selection and stays unchanged th
   assert.equal(result.plan.scene.manual, true);
   assert.equal(result.status, "completed");
 });
+for (const [style, label, rendering, camera] of [
+  ["daily", "日常抓拍", /true-to-life color/, /eye-level handheld camera/],
+  [
+    "film",
+    "胶片记忆",
+    /fine organic film grain/,
+    /intimate, relaxed eye-level/,
+  ],
+  [
+    "editorial",
+    "旅拍写真",
+    /refined natural colors/,
+    /50–85mm equivalent perspective/,
+  ],
+  [
+    "drone",
+    "无人机航拍",
+    /coherent overhead perspective/,
+    /8–20 meters above the ground/,
+  ],
+]) {
+  test(`${style} sends explicit rendering and camera requirements to both planning and image editing`, async () => {
+    const req = travelSchema.parse({
+      ...request,
+      style,
+      moment: "night",
+      environmentPhotoId: 101,
+      outfits: { alice: { instruction: "一定穿红色羽绒服" } },
+    });
+    const plan = await preparePlan(req);
+    assert.equal(plan.photography.style, style);
+    assert.equal(plan.photography.label, label);
+    createTrip(`photography-${style}`, req, plan);
+    await runTrip(`photography-${style}`, req, plan);
+    const result = trip(
+      db.prepare("SELECT * FROM trips WHERE id=?").get(`photography-${style}`),
+    );
+    assert.equal(result.status, "completed");
+    for (const prompt of [lastNarrativePrompt, lastEdit.get("prompt")]) {
+      assert.match(prompt, rendering);
+      assert.match(prompt, camera);
+      assert.match(prompt, /nighttime exposure/);
+      assert.match(prompt, /一定穿红色羽绒服/);
+      assert.match(
+        prompt,
+        /never override the selected identities, participant count, per-person clothing instructions/,
+      );
+    }
+    assert.equal(
+      lastEdit.getAll("image[]").length,
+      plan.selected[0].references.length + 1,
+    );
+    assert.equal(result.plan.photography.label, label);
+    if (style === "drone") {
+      assert.match(lastEdit.get("prompt"), /10–25 percent of image height/);
+      assert.match(lastEdit.get("prompt"), /not an eye-level portrait/);
+      assert.doesNotMatch(lastEdit.get("prompt"), /selected foreground people/);
+    }
+  });
+}
+test("photography style validation preserves existing modes and accepts drone without allowing arbitrary modes", () => {
+  assert.equal(
+    travelSchema.parse({ ...request, style: "drone" }).style,
+    "drone",
+  );
+  assert.equal(
+    travelSchema.safeParse({ ...request, style: "unknown" }).success,
+    false,
+  );
+  const { style, ...oldRequest } = request;
+  assert.equal(travelSchema.parse(oldRequest).style, "daily");
+});
 test.after(async () => {
   globalThis.fetch = realFetch;
   db.close();

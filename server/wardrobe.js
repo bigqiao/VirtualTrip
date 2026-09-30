@@ -3,6 +3,7 @@ import { z } from "zod";
 import { llmJSON } from "./ai.js";
 import { config } from "./config.js";
 import { chooseReference, clothingCandidates } from "./selection.js";
+import { photographyStyle } from "./photography.js";
 const choicesSchema = z.object({
   selections: z.array(
     z.object({
@@ -44,6 +45,7 @@ export async function matchWardrobes(
     temperature: context.temperature,
     weather: context.weather,
     style: context.style,
+    photography: photographyStyle(context.style).summary,
     moment: context.moment,
     instruction: context.instruction,
     people: needsDecision.map((p) => ({

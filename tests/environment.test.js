@@ -224,6 +224,48 @@ test("image loading failure falls back to imagination and shared image fetches p
   assert.equal(imageCount, before);
   await assert.rejects(() => environmentImage(-1), /编号无效/);
 });
+test("drone environment matching accepts aerial imagery and can reconstruct a ground reference", async () => {
+  const result = await chooseEnvironment(
+    await getEnvironment(location()),
+    { ...context("航拍环境测试"), style: "drone" },
+    {
+      select: async (prompt, images, schema) => {
+        assert.match(
+          prompt,
+          /prefer a broad elevated or aerial environment reference/,
+        );
+        assert.match(prompt, /Do NOT reject an aerial photo/);
+        assert.match(prompt, /A useful ground-level photo may also anchor/);
+        assert.doesNotMatch(
+          prompt,
+          /aerial viewpoints when the people would stand at ground level/,
+        );
+        return schema.parse({
+          photoId: 102,
+          reason: "环境开阔，适合重构俯拍视角",
+        });
+      },
+    },
+  );
+  assert.equal(result.source, "commons");
+});
+test("portrait environment matching retains a suitable ground-level preference", async () => {
+  await chooseEnvironment(
+    await getEnvironment(location()),
+    { ...context("写真环境测试"), style: "editorial" },
+    {
+      select: async (prompt, images, schema) => {
+        assert.match(prompt, /compositional depth/);
+        assert.match(prompt, /ground-level viewpoint/);
+        assert.match(
+          prompt,
+          /Explicit user camera and framing requests override/,
+        );
+        return schema.parse({ photoId: 101, reason: "适合环境人像" });
+      },
+    },
+  );
+});
 test.after(async () => {
   globalThis.fetch = realFetch;
   await rm(dir, { recursive: true, force: true });
