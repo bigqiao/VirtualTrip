@@ -57,7 +57,7 @@ npm run build
 NODE_ENV=production npm start
 ```
 
-默认文本 / 视觉模型 `gpt-6-luna`，图像模型 `gpt-image-2.5-flare`。服务端通过 OpenAI 兼容的 `/v1/chat/completions` 和 `/v1/images/edits` 接入，参考照片以 multipart 多图传递。也可以从设置页修改服务地址和模型，测试已保存的连接。
+默认文本 / 视觉模型 `gpt-6-luna`，图像模型 `gpt-image-2.5-flare`。服务端通过 OpenAI 兼容的 `/v1/chat/completions` 和 `/v1/images/edits` 接入，参考照片以 multipart 多图传递，请求 `quality=high`。也可以从设置页修改服务地址和模型，测试已保存的连接。生图可以使用单独的服务：在 `config/local.json` 的 `llm.imageBaseUrl` 与 `llm.imageApiKey` 填写另一个 OpenAI 兼容地址和密钥，`/v1/images/edits` 改发到该服务，文本 / 视觉模型仍走 `llm.baseUrl`；填写了单独地址时不会把主服务密钥发给它。
 
 ## 使用流程
 
@@ -103,7 +103,7 @@ NODE_ENV=production npm start
 
 ## 保存与配置
 
-- `config/local.json`：API 地址、服务密钥、Google 密钥、环境提供方（`environment.provider`，默认 `commons`，可选 `google`）、模型和端口；权限为 `0600`，被 `.gitignore` 忽略。
+- `config/local.json`：API 地址、服务密钥、可选的单独生图地址与密钥、Google 密钥、环境提供方（`environment.provider`，默认 `commons`，可选 `google`）、模型和端口；权限为 `0600`，被 `.gitignore` 忽略。
 - `data/virtualtrip.sqlite`：人物、照片分析、全文索引、生成任务与相册记录。
 - `data/photo-*.jpg` / `data/trip-*.jpg`：原始参考照片和生成结果。
 - 密钥不从服务端返回到网页。网页不直接调用模型；上传和生成所需的图片会由服务端发送到配置的模型网关。

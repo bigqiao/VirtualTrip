@@ -17,7 +17,7 @@ import {
   updateTrip,
   searchPhotos,
 } from "./store.js";
-import { analyzePhoto, jsonFetch, apiUrl } from "./ai.js";
+import { analyzePhoto, jsonFetch, apiUrl, imageService } from "./ai.js";
 import {
   streetImage,
   getWeather,
@@ -190,10 +190,20 @@ app.post("/api/settings/test", async (req, res) => {
     15000,
   );
   const ids = (data.data || []).map((m) => m.id);
+  const image = imageService();
+  const imageData = c.llm.imageBaseUrl
+    ? await jsonFetch(
+        apiUrl("/models", image.baseUrl),
+        { headers: { Authorization: `Bearer ${image.apiKey}` } },
+        15000,
+      )
+    : data;
   res.json({
     ok: true,
     llmAvailable: ids.includes(c.llm.model),
-    imageAvailable: ids.includes(c.llm.imageModel),
+    imageAvailable: (imageData.data || []).some(
+      (m) => m.id === c.llm.imageModel,
+    ),
     models: ids,
   });
 });

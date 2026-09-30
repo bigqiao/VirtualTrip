@@ -19,15 +19,18 @@ export async function jsonFetch(url, options = {}, timeout = 30000) {
     const c = config();
     let message =
       data.error?.message || data.message || `请求失败（${response.status}）`;
-    for (const secret of [c.llm.apiKey, c.google.apiKey].filter(Boolean))
+    for (const secret of [
+      c.llm.apiKey,
+      c.llm.imageApiKey,
+      c.google.apiKey,
+    ].filter(Boolean))
       message = message.split(secret).join("[已隐藏]");
     throw new Error(message.slice(0, 500));
   }
   return data;
 }
-export function apiUrl(endpoint) {
-  const c = config();
-  return `${c.llm.baseUrl.replace(/\/$/, "")}${endpoint}`;
+export function apiUrl(endpoint, baseUrl = config().llm.baseUrl) {
+  return `${baseUrl.replace(/\/$/, "")}${endpoint}`;
 }
 export async function llmJSON(prompt, images = [], schema, timeout = 180000) {
   const c = config();
@@ -99,6 +102,13 @@ export async function analyzePhoto(row) {
     analysisSchema,
   );
 }
+// A separate image service never receives the main gateway's key.
+export function imageService() {
+  const { llm } = config();
+  return llm.imageBaseUrl
+    ? { baseUrl: llm.imageBaseUrl, apiKey: llm.imageApiKey }
+    : { baseUrl: llm.baseUrl, apiKey: llm.apiKey };
+}
 export async function generateImage(prompt, files, size = "1536x1024") {
   if (!files.length || files.length > 16)
     throw new Error("生图需要 1–16 张参考图片。");
@@ -111,7 +121,7 @@ export async function generateImage(prompt, files, size = "1536x1024") {
     `${prompt}\nOUTPUT CANVAS: ${width} x ${height} pixels, ${width > height ? "horizontal landscape" : width < height ? "vertical portrait" : "square"} composition. All references are aligned to this output canvas. Neutral padding in reference images is only a layout guide; recompose a complete photograph and NEVER reproduce blank padding or bars.`,
   );
   form.append("size", size);
-  form.append("quality", "medium");
+  form.append("quality", "high");
   form.append("n", "1");
   for (const [index, file] of files.entries()) {
     // Some compatible gateways inherit the first reference's aspect ratio.
@@ -127,11 +137,12 @@ export async function generateImage(prompt, files, size = "1536x1024") {
       `reference-${index}.jpg`,
     );
   }
+  const service = imageService();
   const data = await jsonFetch(
-    apiUrl("/images/edits"),
+    apiUrl("/images/edits", service.baseUrl),
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${c.llm.apiKey}` },
+      headers: { Authorization: `Bearer ${service.apiKey}` },
       body: form,
     },
     600000,
