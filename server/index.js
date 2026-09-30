@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { isIP } from "node:net";
 import { z } from "zod";
 import { config, publicConfig, saveConfig, dataDir, root } from "./config.js";
 import {
@@ -32,8 +33,9 @@ import { getEnvironment, environmentImage } from "./environment.js";
 const app = express();
 app.disable("x-powered-by");
 app.use((req, res, next) => {
-  if (!["127.0.0.1", "localhost", "::1"].includes(req.hostname))
-    return res.status(403).send("Local access only");
+  const host = req.hostname.replace(/^\[|\]$/g, "");
+  if (host !== "localhost" && !isIP(host))
+    return res.status(403).send("Access by IP address only");
   next();
 });
 app.use(express.json({ limit: "100kb" }));
@@ -41,11 +43,7 @@ app.use("/api", (req, res, next) => {
   const origin = req.headers.origin;
   if (origin) {
     try {
-      const o = new URL(origin);
-      if (
-        !["127.0.0.1", "localhost", "[::1]"].includes(o.hostname) ||
-        o.port !== String(config().port || 3210)
-      )
+      if (new URL(origin).host !== req.headers.host)
         return res.status(403).json({ error: "拒绝跨站请求" });
     } catch {
       return res.status(403).json({ error: "请求来源无效" });
@@ -490,10 +488,10 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 const port = config().port || 3210;
-app.listen(port, "127.0.0.1", (error) => {
+app.listen(port, "0.0.0.0", (error) => {
   if (error) {
     console.error(`VirtualTrip 启动失败：${error.message}`);
     process.exit(1);
   }
-  console.log(`VirtualTrip ready at http://127.0.0.1:${port}`);
+  console.log(`VirtualTrip ready at http://0.0.0.0:${port}`);
 });
